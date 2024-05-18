@@ -22,6 +22,6 @@ To download the table which you have open, click on the triple-dot icon on its t
 #### Step 3:
 Open your terminal/command prompt and navigate to the top level of your directory which contains the flashcard_applet.py python script. Then enter the command 'python flashcard_applet.py'. The console will display the address running your app. Navigate in your browser to this address and click on the 'Case Practice' button. You can choose between different levels of vocabulary depth at the top of the page. Above the flashcard are what/who question words associated with the required translation case, along with the requirement to translate into either masculine (m), feminine (f), neuter (n), or plural (pl). To flip the card between the Russian and English translations, press the spacebar. The flashcard can be advanced by either clicking 'Next Exercise' or by simply pressing the right-arrow key.
 
-
+Happy learning!
 
 
