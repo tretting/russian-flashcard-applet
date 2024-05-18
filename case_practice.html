@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Case Practice</title>
+    <div class="difficulty-levels">
+        <div class="button-container">
+            <button id="beginner"
+                onclick="setDifficulty('beginner')">Beginner</button>
+            <!-- Initially set to 'Top 100' or the correct number for 'beginner' -->
+            <span id="beginner-text" class="button-text">Top 100</span>
+        </div>
+        <div class="button-container">
+            <button id="intermediate"
+                onclick="setDifficulty('intermediate')">Intermediate</button>
+            <!-- Initially hidden; will be updated by JavaScript -->
+            <span id="intermediate-text" class="button-text"
+                style="display: none;">Top 500</span>
+        </div>
+        <div class="button-container">
+            <button id="advanced"
+                onclick="setDifficulty('advanced')">Advanced</button>
+            <!-- Initially hidden; will be updated by JavaScript -->
+            <span id="advanced-text" class="button-text"
+                style="display: none;">Top 2000</span>
+        </div>
+        <div class="button-container">
+            <button id="native"
+                onclick="setDifficulty('native')">Native</button>
+            <!-- Initially hidden; will be updated by JavaScript -->
+            <span id="native-text" class="button-text"
+                style="display: none;">Top 10000</span>
+        </div>
+    </div>
+
+
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}">
+    <script>
+        function showAnswer() {
+            document.getElementById('answer').style.display = 'block';
+        }
+    </script>
+</head>
+
+<body>
+    <div class="interrogative-container">
+        <p id="interrogative">{{ interrogative }} - {{ "pl." if is_plural
+            else noun_gender }}</p>
+    </div>
+
+    <div class="flashcard-container">
+        <div class="flashcard" id="flashcard">
+            <div class="card-content" id="english-content" data-adj="{{ adj }}"
+                data-noun="{{ noun }}" data-interrogative="{{ interrogative }}"
+                data-is-plural="{{ is_plural }}"
+                data-noun-gender="{{ noun_gender }}">
+                <p>{{ adj }} {{ noun }}</p>
+            </div>
+            <div class="card-content hidden" id="russian-content"
+                data-noun-form="{{ noun_form }}" data-adj-form="{{ adj_form }}">
+                <p>{{ adj_form }} {{ noun_form }}</p>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="window.location.href='/'">Back to Index</button>
+    <button onclick="window.location.reload();">New Exercise</button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            updateButtonStylesAndText();
+            document.getElementById('english-content').classList.remove('hidden');
+            document.getElementById('russian-content').classList.add('hidden');
+            document.getElementById('flashcard').addEventListener('click', toggleFlashcard);
+
+            // Listen for keydown events for navigation and flashcard toggle
+            document.addEventListener('keydown', function (event) {
+                if (event.code === 'Space') {
+                    toggleFlashcard();
+                } else if (event.code === 'ArrowRight' || event.code === 'Enter') {
+                    fetchNext();
+                } else if (event.code === 'ArrowLeft') {
+                    fetchPrevious();
+                }
+            });
+        });
+
+        let currentState = {};
+        let previousState = {};
+
+        function toggleFlashcard() {
+            var englishContent = document.getElementById('english-content');
+            var russianContent = document.getElementById('russian-content');
+            englishContent.classList.toggle('hidden');
+            russianContent.classList.toggle('hidden');
+        }
+
+        function setDifficulty(level) {
+            localStorage.setItem('selectedDifficulty', level);
+            updateButtonStylesAndText();
+            fetchWord('next', level); // Corrected to use fetchWord with the new difficulty level
+        }
+
+        function updateButtonStylesAndText() {
+            const selectedLevel = localStorage.getItem('selectedDifficulty') || 'beginner';
+
+            document.querySelectorAll('.difficulty-levels button').forEach(btn => {
+                btn.style.backgroundColor = '#333'; // Reset style for all buttons
+                const textElement = document.getElementById(btn.id + '-text');
+                if (textElement) {
+                    textElement.style.display = 'none'; // Hide text for all buttons
+                }
+            });
+
+            // Highlight the selected button and show its text
+            const selectedButton = document.getElementById(selectedLevel);
+            const selectedTextElement = document.getElementById(selectedLevel + '-text');
+            if (selectedButton && selectedTextElement) {
+                selectedButton.style.backgroundColor = 'darkblue'; // Highlight selected button
+                selectedTextElement.style.display = 'block'; // Show text for selected button
+                selectedTextElement.innerText = getWordCountText(selectedLevel); // Set correct text
+            }
+        }
+
+        // Call updateButtonStylesAndText when the page loads to apply the default or stored selection
+        document.addEventListener('DOMContentLoaded', () => {
+            updateButtonStylesAndText();
+        });
+
+        function getWordCountText(level) {
+            switch (level) {
+                case 'beginner': return 'Top 100';
+                case 'intermediate': return 'Top 500';
+                case 'advanced': return 'Top 2000';
+                default: return 'Top 10000';
+            }
+        }
+
+        function fetchNext() {
+            const difficulty = localStorage.getItem('selectedDifficulty') || 'beginner';
+            // Before fetching the next word, save the current display as the previous word
+            saveCurrentAsPrevious();
+            fetchWord('next', difficulty);
+        }
+
+        function saveCurrentAsPrevious() {
+            // Save currentState as previousState before updating currentState with new data
+            previousState = { ...currentState };
+            sessionStorage.setItem('previous_word', JSON.stringify(previousState));
+        }
+
+        function fetchPrevious() {
+            // Retrieve the 'previous_word' from sessionStorage
+            const previousWordData = sessionStorage.getItem('previous_word');
+            if (previousWordData) {
+                // Parse the stored JSON string back into an object
+                const data = JSON.parse(previousWordData);
+                console.log("Retrieved previous word data:", data); // Add for debugging
+                updateCardContent(data);
+            } else {
+                console.log("No previous word data found in sessionStorage."); // Add for debugging
+            }
+        }
+
+        function fetchWord(direction, difficulty) {
+            // Fetch the new word based on direction and difficulty
+            fetch(`/get_word?difficulty=${difficulty}&direction=${direction}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (direction === 'next') {
+                        // Since 'data' is now defined, we can use it to save the current word as previous
+                        const currentWordData = {
+                            adj: data.adj,
+                            adj_form: data.adj_form,
+                            case_ch: data.case_ch,
+                            interrogative: data.interrogative,
+                            is_plural: data.is_plural,
+                            noun: data.noun,
+                            noun_form: data.noun_form,
+                            noun_gender: data.noun_gender
+                        };
+                        saveCurrentAsPrevious(currentWordData);
+                    }
+
+                    // Now that we have the new word, update the content
+                    updateCardContent(data);
+
+                    if (direction === 'next') {
+                        // After successfully fetching and displaying the next word, update sessionStorage
+                        sessionStorage.setItem('current_word', JSON.stringify(data));
+                    }
+                })
+                .catch(error => console.error('Error fetching word:', error));
+        }
+
+        function captureCurrentWordData() {
+            // Directly capture data from the content elements on the page,
+            // assuming these elements have attributes set by the last updateCardContent call
+            const englishContent = document.getElementById('english-content');
+            const russianContent = document.getElementById('russian-content');
+
+            // Assuming 'data-*' attributes are being set on these elements when updateCardContent is called
+            return {
+                adj: englishContent.getAttribute('data-adj'),
+                noun: englishContent.getAttribute('data-noun'),
+                adj_form: russianContent.getAttribute('data-adj-form'),
+                noun_form: russianContent.getAttribute('data-noun-form'),
+                // Add other necessary data attributes here, following the same pattern
+                case_ch: englishContent.getAttribute('data-case-ch'), // Example for additional attributes
+                interrogative: englishContent.getAttribute('data-interrogative'),
+                is_plural: englishContent.getAttribute('data-is-plural') === 'true', // Correctly interpret the string attribute
+                noun_gender: englishContent.getAttribute('data-noun-gender'),
+            };
+        }
+
+        function updateCardContent(data) {
+            // Update currentState with new data
+            currentState = { ...data };
+
+            try {
+
+                // Attempt to find the elements first
+                const englishContent = document.getElementById('english-content');
+                const russianContent = document.getElementById('russian-content');
+                const interrogativeElem = document.getElementById('interrogative');
+
+                // Check if the elements exist
+                if (!englishContent) console.log('English content element not found');
+                if (!russianContent) console.log('Russian content element not found');
+                if (!interrogativeElem) console.log('Interrogative element not found');
+
+                // Proceed with your existing logic if all elements are found
+                if (englishContent && russianContent && interrogativeElem) {
+                    // Check if data is not undefined before attempting to update
+                    if (data !== undefined) {
+                        const { noun, adj, case_ch, interrogative, noun_form, adj_form, is_plural, noun_gender } = data;
+                        document.getElementById('english-content').innerHTML = `<p>${adj} ${noun}</p>`;
+                        document.getElementById('russian-content').innerHTML = `<p>${adj_form} ${noun_form}</p>`;
+                        let marker = is_plural ? "pl." : noun_gender;
+                        document.getElementById('interrogative').innerText = `${interrogative} - ${marker}`;
+                        document.getElementById('english-content').classList.remove('hidden');
+                        document.getElementById('russian-content').classList.add('hidden');
+                        console.log("Attempting to update card data with:", JSON.stringify(data, null, 2));
+                    } else {
+                        console.log('No data or undefined data received');
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating card content:', error);
+            }
+
+            sessionStorage.setItem('current_state', JSON.stringify(currentState));
+        }
+    </script>
+</body>
+
+</html>
